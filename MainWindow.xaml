@@ -5,23 +5,40 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:PitchDetectorApp"
         mc:Ignorable="d"
-        Title="Afinador YIN Profesional" Height="320" Width="400"
+        Title="Detector Musical Inteligente (YIN + YAMNet)" Height="380" Width="460"
         WindowStartupLocation="CenterScreen" Background="#1E1E1E" Foreground="White"
         >
-    <Grid Margin="20">
+    <Grid Margin="24">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0" VerticalAlignment="Center" HorizontalAlignment="Center">
-            <TextBlock x:Name="TxtNota" Text="--" FontSize="76" FontWeight="Bold"
-                       HorizontalAlignment="Center" Foreground="#4CC2FF"/>
+        <ItemsControl x:Name="LstFuentes" Grid.Row="0" HorizontalAlignment="Center" MinHeight="34">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <WrapPanel HorizontalAlignment="Center" />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Border Background="#2A2D34" BorderBrush="#3E4451" BorderThickness="1"
+                            CornerRadius="14" Padding="12,5" Margin="4">
+                        <TextBlock Text="{Binding}" FontSize="13" FontWeight="SemiBold" Foreground="#E0E6ED"/>
+                    </Border>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <StackPanel Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center">
+            <TextBlock x:Name="TxtPrincipal" Text="--" FontSize="68" FontWeight="Bold"
+                       HorizontalAlignment="Center" Foreground="#4CC2FF" TextAlignment="Center"/>
             <TextBlock x:Name="TxtDetalle" Text="Presiona Activar para escuchar" FontSize="16"
-                       HorizontalAlignment="Center" Foreground="#AAAAAA" Margin="0,8,0,0"/>
+                       HorizontalAlignment="Center" Foreground="#A0A5B1" Margin="0,8,0,0"/>
         </StackPanel>
 
-        <Button x:Name="BtnToggle" Grid.Row="1" Content="Activar" Height="45" FontSize="16"
+        <Button x:Name="BtnToggle" Grid.Row="2" Content="Activar" Height="46" FontSize="16"
                 FontWeight="SemiBold" Background="#2E7D32" Foreground="White"
                 BorderThickness="0" Click="BtnToggle_Click" Cursor="Hand"/>
     </Grid>

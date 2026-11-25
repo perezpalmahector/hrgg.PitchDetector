@@ -24,7 +24,6 @@
 
         public double Process(double rawFrequency)
         {
-            // Manejo de silencio
             if (rawFrequency <= 0)
             {
                 _silentFrames++;
@@ -37,7 +36,6 @@
 
             _silentFrames = 0;
 
-            // Primera lectura válida tras silencio
             if (_lockedFrequency <= 0)
             {
                 AddSample(rawFrequency);
@@ -45,7 +43,6 @@
                 return _lockedFrequency;
             }
 
-            // Verificar si la lectura está dentro de la misma nota (~ +/- 45 cents)
             double ratio = rawFrequency / _lockedFrequency;
             if (ratio >= 0.974 && ratio <= 1.026)
             {
@@ -56,7 +53,6 @@
                 return _lockedFrequency;
             }
 
-            // Si es una nota distinta, exigir confirmación consecutiva antes de cambiar
             if (_candidateFrequency > 0 && (rawFrequency / _candidateFrequency) >= 0.974 && (rawFrequency / _candidateFrequency) <= 1.026)
             {
                 _candidateCount++;
@@ -68,7 +64,6 @@
                 _candidateCount = 1;
             }
 
-            // Confirmado: realmente cambiaste de nota
             if (_candidateCount >= _framesToConfirmChange)
             {
                 Reset();

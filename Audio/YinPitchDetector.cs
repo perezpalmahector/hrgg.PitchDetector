@@ -7,8 +7,9 @@
         private readonly float[] _yinBuffer;
 
         public double LastRms { get; private set; }
+        public double LastConfidence { get; private set; }
 
-        public YinPitchDetector(int sampleRate = 44100, int bufferSize = 4096, double threshold = 0.20)
+        public YinPitchDetector(int sampleRate = 44100, int bufferSize = 4096, double threshold = 0.15)
         {
             _sampleRate = sampleRate;
             _threshold = threshold;
@@ -21,18 +22,17 @@
             if (audioBuffer.Length < halfBufferSize * 2)
                 return -1;
 
-            // 1. Calcular volumen (RMS)
             double rms = 0;
             for (int i = 0; i < halfBufferSize * 2; i++)
                 rms += audioBuffer[i] * audioBuffer[i];
 
             LastRms = Math.Sqrt(rms / (halfBufferSize * 2));
-
-            // Umbral más sensible (0.003) para micrófonos con ganancia baja
-            if (LastRms < 0.003)
+            if (LastRms < 0.004)
+            {
+                LastConfidence = 0;
                 return -1;
+            }
 
-            // 2. Función de diferencia
             Array.Clear(_yinBuffer, 0, halfBufferSize);
             for (int tau = 1; tau < halfBufferSize; tau++)
             {
@@ -43,7 +43,6 @@
                 }
             }
 
-            // 3. Diferencia media acumulada normalizada (CMNDF) -> AQUÍ ESTABA EL ERROR ([0])
             _yinBuffer[0] = 1f;
             float runningSum = 0f;
             for (int tau = 1; tau < halfBufferSize; tau++)
@@ -52,7 +51,6 @@
                 _yinBuffer[tau] *= tau / runningSum;
             }
 
-            // 4. Búsqueda del primer mínimo local
             int tauEstimate = -1;
             int minTau = _sampleRate / 2000;
             int maxTau = Math.Min(halfBufferSize - 1, _sampleRate / 30);
@@ -71,9 +69,13 @@
             }
 
             if (tauEstimate == -1)
+            {
+                LastConfidence = 0;
                 return -1;
+            }
 
-            // 5. Interpolación parabólica
+            // Entre menor es _yinBuffer[tauEstimate], más pura y monofónica es la nota
+            LastConfidence = 1.0 - _yinBuffer[tauEstimate];
             double betterTau = ParabolicInterpolation(tauEstimate);
             return _sampleRate / betterTau;
         }
