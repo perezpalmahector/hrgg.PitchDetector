@@ -3,13 +3,19 @@ using PitchDetectorApp.Audio;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 
 namespace PitchDetectorApp
 {
     public partial class SongTrainerWindow : Window
     {
-        public sealed record NoteChipViewModel(string Label, SolidColorBrush Background, SolidColorBrush BorderBrush);
+        public sealed record NoteChipViewModel(
+            int NoteIndex,
+            string Label,
+            string DurationLabel,
+            SolidColorBrush Background,
+            SolidColorBrush BorderBrush);
 
         private readonly AudioCaptureService _audioService;
         private readonly SongMelodyTrainer _songTrainer;
@@ -17,7 +23,7 @@ namespace PitchDetectorApp
 
         private CancellationTokenSource? _playbackCts;
         private bool _isPracticing;
-        private double _noteDurationSeconds = 0.50;
+        private string? _activeJsonPath;
 
         private static readonly SolidColorBrush BrushPendingBg = CreateBrush(42, 45, 52);
         private static readonly SolidColorBrush BrushPendingBorder = CreateBrush(62, 68, 81);
@@ -28,35 +34,28 @@ namespace PitchDetectorApp
         private static readonly SolidColorBrush BrushStart = CreateBrush(46, 125, 50);
         private static readonly SolidColorBrush BrushStop = CreateBrush(198, 40, 40);
 
-        public SongTrainerWindow(AudioCaptureService audioService, string? songsJson = null)
+        public SongTrainerWindow(AudioCaptureService audioService)
         {
             InitializeComponent();
             _audioService = audioService;
             _songTrainer = new SongMelodyTrainer();
             _tonePlayer = new NoteTonePlayer();
 
-            if (!string.IsNullOrWhiteSpace(songsJson))
+            _activeJsonPath = FindSongsJsonPath();
+            if (_activeJsonPath != null)
             {
-                LoadSongsIntoUI(songsJson);
-                return;
-            }
-
-            string? jsonPath = FindSongsJsonPath();
-            if (jsonPath != null)
-            {
-                LoadSongsIntoUI(File.ReadAllText(jsonPath));
+                _songTrainer.LoadFromFile(_activeJsonPath);
+                PopulateSongsCombo();
             }
         }
 
         private static string? FindSongsJsonPath()
         {
-            // 1. Busca primero en la carpeta del ejecutable (bin\Debug\...)
             string baseDir = AppDomain.CurrentDomain.BaseDirectory;
             string inOutput = Path.Combine(baseDir, "songs.json");
             if (File.Exists(inOutput))
                 return inOutput;
 
-            // 2. Sube hasta 4 niveles hacia la carpeta raíz del proyecto (donde está MainWindow.xaml)
             var dir = new DirectoryInfo(baseDir);
             for (int i = 0; i < 4 && dir?.Parent != null; i++)
             {
@@ -65,15 +64,11 @@ namespace PitchDetectorApp
                 if (File.Exists(candidate))
                     return candidate;
             }
-
             return null;
         }
 
-
-        private void LoadSongsIntoUI(string json)
+        private void PopulateSongsCombo()
         {
-            _songTrainer.LoadFromJson(json);
-
             CmbSongs.ItemsSource = _songTrainer.Songs
                 .Select(s => string.IsNullOrWhiteSpace(s.Tonality)
                     ? s.Title
@@ -98,7 +93,9 @@ namespace PitchDetectorApp
                 {
                     StopPlayback();
                     StopPractice();
-                    LoadSongsIntoUI(File.ReadAllText(dlg.FileName));
+                    _activeJsonPath = dlg.FileName;
+                    _songTrainer.LoadFromFile(_activeJsonPath);
+                    PopulateSongsCombo();
                 }
                 catch (Exception ex)
                 {
@@ -107,6 +104,53 @@ namespace PitchDetectorApp
                 }
             }
         }
+
+        private void BtnSaveJson_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                _songTrainer.SaveDurationsToJsonFile(_activeJsonPath);
+                TxtInstruction.Text = "💾 ¡Tiempos guardados correctamente en songs.json!";
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"No se pudo guardar: {ex.Message}", "Error al guardar",
+                                MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+        private void NoteChip_LeftClick(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is Border { Tag: int idx } && _songTrainer.CurrentLine != null)
+            {
+                double current = _songTrainer.CurrentLine.NoteDurations[idx];
+                _songTrainer.SetNoteDuration(idx, current + 0.10);
+                RefreshLineUI(activeIndex: _songTrainer.CurrentNoteIndex);
+            }
+        }
+
+        private void NoteChip_RightClick(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is Border { Tag: int idx } && _songTrainer.CurrentLine != null)
+            {
+                double current = _songTrainer.CurrentLine.NoteDurations[idx];
+                _songTrainer.SetNoteDuration(idx, current - 0.10);
+                RefreshLineUI(activeIndex: _songTrainer.CurrentNoteIndex);
+            }
+        }
+
+        private void NoteChip_MouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            if (sender is Border { Tag: int idx } && _songTrainer.CurrentLine != null)
+            {
+                double delta = e.Delta > 0 ? 0.10 : -0.10;
+                double current = _songTrainer.CurrentLine.NoteDurations[idx];
+                double next = Math.Round((current + delta) * 10) / 10.0;
+                _songTrainer.SetNoteDuration(idx, next);
+                RefreshLineUI(activeIndex: _songTrainer.CurrentNoteIndex);
+                e.Handled = true;
+            }
+        }
+
 
         private void CmbSongs_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
@@ -122,13 +166,6 @@ namespace PitchDetectorApp
 
             if (_songTrainer.Lines.Count > 0)
                 CmbLines.SelectedIndex = 0;
-            else
-            {
-                TxtSectionBadge.Text = "SIN MELODÍA";
-                TxtChords.Text = "";
-                TxtLyrics.Text = "Este canto no contiene líneas de melodía (M).";
-                LstMelodyNotes.ItemsSource = null;
-            }
         }
 
         private void CmbOctave_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -143,9 +180,13 @@ namespace PitchDetectorApp
 
         private void SldDuration_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
-            _noteDurationSeconds = Math.Round(e.NewValue, 2);
+            if (_songTrainer == null) return;
+            double val = Math.Round(e.NewValue, 2);
             if (TxtDurationLabel != null)
-                TxtDurationLabel.Text = $"Duración nota: {_noteDurationSeconds:F2}s";
+                TxtDurationLabel.Text = $"Base todas: {val:F2}s";
+
+            _songTrainer.ApplyUniformDurationToCurrentLine(val);
+            RefreshLineUI(activeIndex: _songTrainer.CurrentNoteIndex);
         }
 
         private void CmbLines_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -177,9 +218,12 @@ namespace PitchDetectorApp
                 {
                     token.ThrowIfCancellationRequested();
                     RefreshLineUI(activeIndex: i);
+
+                    double dur = line.NoteDurations[i];
                     int midi = _songTrainer.GetMidiForToken(line.NoteTokens[i]);
-                    _tonePlayer.PlayMidiNote(midi, _noteDurationSeconds * 0.92);
-                    await Task.Delay(TimeSpan.FromSeconds(_noteDurationSeconds), token);
+                    _tonePlayer.PlayMidiNote(midi, dur * 0.92);
+
+                    await Task.Delay(TimeSpan.FromSeconds(dur), token);
                 }
 
                 RefreshLineUI(activeIndex: 0);
@@ -266,12 +310,14 @@ namespace PitchDetectorApp
             for (int i = 0; i < line.NoteTokens.Count; i++)
             {
                 string fullName = _songTrainer.GetFullNoteNameForToken(line.NoteTokens[i]);
+                string durLabel = $"{line.NoteDurations[i]:F2}s";
+
                 if (i < activeIndex)
-                    chips.Add(new NoteChipViewModel(fullName, BrushDoneBg, BrushDoneBorder));
+                    chips.Add(new NoteChipViewModel(i, fullName, durLabel, BrushDoneBg, BrushDoneBorder));
                 else if (i == activeIndex)
-                    chips.Add(new NoteChipViewModel(fullName, BrushActiveBg, BrushActiveBorder));
+                    chips.Add(new NoteChipViewModel(i, fullName, durLabel, BrushActiveBg, BrushActiveBorder));
                 else
-                    chips.Add(new NoteChipViewModel(fullName, BrushPendingBg, BrushPendingBorder));
+                    chips.Add(new NoteChipViewModel(i, fullName, durLabel, BrushPendingBg, BrushPendingBorder));
             }
 
             LstMelodyNotes.ItemsSource = chips;

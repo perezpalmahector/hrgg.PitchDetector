@@ -5,69 +5,78 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:PitchDetectorApp"
         mc:Ignorable="d"
-        Title="Ensayador de Cantos Línea a Línea" Height="610" Width="640"
+        Title="Ensayador de Cantos Línea a Línea" Height="640" Width="670"
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
         Background="#1E1E1E" Foreground="White">
-    <Grid Margin="22">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>
+        <Grid Margin="22">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
 
-        <Grid Grid.Row="0" Margin="0,0,0,12">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="10"/>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="10"/>
-                <ColumnDefinition Width="Auto"/>
-            </Grid.ColumnDefinitions>
+            <Grid Grid.Row="0" Margin="0,0,0,12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="8"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="8"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="8"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
 
-            <StackPanel Grid.Column="0">
-                <TextBlock Text="Canto:" FontSize="12" Foreground="#A0A5B1" Margin="0,0,0,4"/>
-                <ComboBox x:Name="CmbSongs" Height="32" FontSize="13" FontWeight="SemiBold"
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="Canto:" FontSize="12" Foreground="#A0A5B1" Margin="0,0,0,4"/>
+                    <ComboBox x:Name="CmbSongs" Height="32" FontSize="13" FontWeight="SemiBold"
                           SelectionChanged="CmbSongs_SelectionChanged"/>
-            </StackPanel>
+                </StackPanel>
 
-            <StackPanel Grid.Column="2">
-                <TextBlock Text="Archivo:" FontSize="12" Foreground="#A0A5B1" Margin="0,0,0,4"/>
-                <Button x:Name="BtnLoadJson" Content="📂 JSON" Height="32" Padding="12,0"
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="Archivo:" FontSize="12" Foreground="#A0A5B1" Margin="0,0,0,4"/>
+                    <Button x:Name="BtnLoadJson" Content="📂 Abrir" Height="32" Padding="10,0"
                         FontSize="12" FontWeight="SemiBold" Background="#323846" Foreground="#4CC2FF"
                         BorderThickness="0" Click="BtnLoadJson_Click" Cursor="Hand"/>
-            </StackPanel>
+                </StackPanel>
 
-            <StackPanel Grid.Column="4">
-                <TextBlock Text="Voz / Octava:" FontSize="12" Foreground="#A0A5B1" Margin="0,0,0,4"/>
-                <ComboBox x:Name="CmbOctave" Width="140" Height="32" SelectedIndex="0"
+                <StackPanel Grid.Column="4">
+                    <TextBlock Text="Tiempos:" FontSize="12" Foreground="#A0A5B1" Margin="0,0,0,4"/>
+                    <Button x:Name="BtnSaveJson" Content="💾 Guardar" Height="32" Padding="10,0"
+                        FontSize="12" FontWeight="SemiBold" Background="#2E7D32" Foreground="White"
+                        BorderThickness="0" Click="BtnSaveJson_Click" Cursor="Hand"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="6">
+                    <TextBlock Text="Voz / Octava:" FontSize="12" Foreground="#A0A5B1" Margin="0,0,0,4"/>
+                    <ComboBox x:Name="CmbOctave" Width="140" Height="32" SelectedIndex="1"
                           SelectionChanged="CmbOctave_SelectionChanged">
-                    <ComboBoxItem Content="👩 Aguda (Octava 4)" Tag="4"/>
-                    <ComboBoxItem Content="👨 Grave (Octava 3)" Tag="3"/>
-                </ComboBox>
-            </StackPanel>
-        </Grid>
+                        <ComboBoxItem Content="👩 Aguda (Octava 4)" Tag="4"/>
+                        <ComboBoxItem Content="👨 Grave (Octava 3)" Tag="3"/>
+                    </ComboBox>
+                </StackPanel>
+            </Grid>
 
-        <Grid Grid.Row="1" Margin="0,0,0,14">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="2*"/>
-                <ColumnDefinition Width="16"/>
-                <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
+            <Grid Grid.Row="1" Margin="0,0,0,14">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="2*"/>
+                    <ColumnDefinition Width="16"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
 
-            <StackPanel Grid.Column="0">
-                <TextBlock Text="Línea del canto:" FontSize="12" Foreground="#A0A5B1" Margin="0,0,0,4"/>
-                <ComboBox x:Name="CmbLines" Height="34" FontSize="13"
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="Línea del canto:" FontSize="12" Foreground="#A0A5B1" Margin="0,0,0,4"/>
+                    <ComboBox x:Name="CmbLines" Height="34" FontSize="13"
                           SelectionChanged="CmbLines_SelectionChanged"/>
-            </StackPanel>
+                </StackPanel>
 
-            <StackPanel Grid.Column="2" VerticalAlignment="Bottom">
-                <TextBlock x:Name="TxtDurationLabel" Text="Duración nota: 0.50s" FontSize="12" Foreground="#E0E6ED" HorizontalAlignment="Center"/>
-                <Slider x:Name="SldDuration" Minimum="0.25" Maximum="1.50" Value="0.50" TickFrequency="0.05"
+                <StackPanel Grid.Column="2" VerticalAlignment="Bottom">
+                    <TextBlock x:Name="TxtDurationLabel" Text="Base todas: 0.50s" FontSize="12" Foreground="#E0E6ED" HorizontalAlignment="Center"/>
+                    <Slider x:Name="SldDuration" Minimum="0.20" Maximum="1.50" Value="0.50" TickFrequency="0.05"
                         IsSnapToTickEnabled="True" ValueChanged="SldDuration_ValueChanged" Margin="0,4,0,2"/>
-            </StackPanel>
-        </Grid>
+                </StackPanel>
+            </Grid>
         <Border Grid.Row="2" Background="#252830" BorderBrush="#353A45" BorderThickness="1"
                 CornerRadius="12" Padding="18" Margin="0,0,0,14">
             <Grid>
@@ -78,13 +87,17 @@
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
-                <TextBlock x:Name="TxtSectionBadge" Grid.Row="0" Text="ESTROFA 1" FontSize="11"
-                           FontWeight="Bold" Foreground="#81C784"/>
+                <Grid Grid.Row="0">
+                    <TextBlock x:Name="TxtSectionBadge" Text="ESTROFA 1" FontSize="11"
+                               FontWeight="Bold" Foreground="#81C784" HorizontalAlignment="Left"/>
+                    <TextBlock Text="💡 Clic izq en nota: +0.10s | Clic der: -0.10s" FontSize="11"
+                               Foreground="#A0A5B1" HorizontalAlignment="Right"/>
+                </Grid>
 
-                <StackPanel Grid.Row="1" Margin="0,8,0,12">
+                <StackPanel Grid.Row="1" Margin="0,8,0,10">
                     <TextBlock x:Name="TxtChords" Text=" " FontFamily="Consolas"
                                FontSize="14" FontWeight="Bold" Foreground="#FFB74D"/>
-                    <TextBlock x:Name="TxtLyrics" Text="Carga songs.json para comenzar" FontSize="22"
+                    <TextBlock x:Name="TxtLyrics" Text="Carga songs.json para comenzar" FontSize="21"
                                FontWeight="Bold" Foreground="White" TextWrapping="Wrap" Margin="0,4,0,0"/>
                 </StackPanel>
 
@@ -97,8 +110,15 @@
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
                             <Border Background="{Binding Background}" BorderBrush="{Binding BorderBrush}"
-                                    BorderThickness="2" CornerRadius="8" Padding="12,6" Margin="4">
-                                <TextBlock Text="{Binding Label}" FontSize="16" FontWeight="Bold" Foreground="White"/>
+            BorderThickness="2" CornerRadius="8" Padding="11,6" Margin="4"
+            Cursor="Hand" Tag="{Binding NoteIndex}"
+            MouseLeftButtonDown="NoteChip_LeftClick"
+            MouseRightButtonDown="NoteChip_RightClick"
+            MouseWheel="NoteChip_MouseWheel">
+                                <StackPanel HorizontalAlignment="Center">
+                                    <TextBlock Text="{Binding Label}" FontSize="16" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="{Binding DurationLabel}" FontSize="11" Foreground="#CFD8DC" HorizontalAlignment="Center"/>
+                                </StackPanel>
                             </Border>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>

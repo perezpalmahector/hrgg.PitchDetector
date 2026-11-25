@@ -1,4 +1,7 @@
-﻿using System.Text.Json;
+﻿using System.IO;
+using System.Text.Encodings.Web;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 
@@ -15,11 +18,13 @@ namespace PitchDetectorApp.Audio
 
     public sealed class SongLineItem
     {
+        public int MelodyLineId { get; init; }
         public string SectionTitle { get; init; } = "";
         public string Chords { get; init; } = "";
         public string MelodyRaw { get; init; } = "";
         public string Lyrics { get; init; } = "";
         public List<string> NoteTokens { get; init; } = new();
+        public List<double> NoteDurations { get; init; } = new();
     }
 
     public readonly record struct MelodyStepFeedback(
@@ -62,7 +67,11 @@ namespace PitchDetectorApp.Audio
         public int CurrentSongIndex { get; private set; }
         public int CurrentLineIndex { get; private set; }
         public int CurrentNoteIndex { get; private set; }
-        public int BaseOctave { get; set; } = 4;
+        public int BaseOctave { get; set; } = 3;
+        public bool IgnoreOctaveWhenSinging { get; set; } = true;
+
+        private string? _loadedJsonPath;
+        private JsonNode? _rootJsonNode;
 
         private double _holdSeconds;
         private int _missedFrames;
@@ -82,8 +91,16 @@ namespace PitchDetectorApp.Audio
                 ? Lines[CurrentLineIndex]
                 : null;
 
+        public void LoadFromFile(string filePath)
+        {
+            _loadedJsonPath = filePath;
+            string json = File.ReadAllText(filePath);
+            LoadFromJson(json);
+        }
+
         public void LoadFromJson(string json)
         {
+            _rootJsonNode = JsonNode.Parse(json);
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
             using var doc = JsonDocument.Parse(json);
             List<SongDto> dtos = new();
@@ -109,6 +126,74 @@ namespace PitchDetectorApp.Audio
             Songs = dtos.Select(ParseSongDto).ToList();
             SelectSong(0);
         }
+        public void SetNoteDuration(int noteIndex, double seconds)
+        {
+            var line = CurrentLine;
+            if (line == null || noteIndex < 0 || noteIndex >= line.NoteDurations.Count) return;
+            line.NoteDurations[noteIndex] = Math.Clamp(Math.Round(seconds, 2), 0.15, 3.00);
+        }
+
+        public void ApplyUniformDurationToCurrentLine(double seconds)
+        {
+            var line = CurrentLine;
+            if (line == null) return;
+            double clamped = Math.Clamp(Math.Round(seconds, 2), 0.15, 3.00);
+            for (int i = 0; i < line.NoteDurations.Count; i++)
+                line.NoteDurations[i] = clamped;
+        }
+
+        public void SaveDurationsToJsonFile(string? targetPath = null)
+        {
+            string? path = targetPath ?? _loadedJsonPath;
+            if (string.IsNullOrWhiteSpace(path) || _rootJsonNode == null)
+                throw new InvalidOperationException("No hay un archivo songs.json vinculado para guardar.");
+
+            var durationsByLineId = Songs
+                .SelectMany(s => s.Lines)
+                .Where(l => l.MelodyLineId > 0)
+                .GroupBy(l => l.MelodyLineId)
+                .ToDictionary(g => g.Key, g => g.First().NoteDurations);
+
+            JsonArray? songsArray = _rootJsonNode as JsonArray
+                ?? _rootJsonNode["songs"] as JsonArray;
+
+            if (songsArray == null && _rootJsonNode is JsonObject singleObj)
+                songsArray = new JsonArray(singleObj);
+
+            if (songsArray != null)
+            {
+                foreach (var songNode in songsArray.OfType<JsonObject>())
+                {
+                    if (songNode["sections"] is not JsonArray sections) continue;
+                    foreach (var secNode in sections.OfType<JsonObject>())
+                    {
+                        if (secNode["lines"] is not JsonArray lines) continue;
+                        foreach (var lineNode in lines.OfType<JsonObject>())
+                        {
+                            int id = lineNode["id"]?.GetValue<int>() ?? 0;
+                            string type = lineNode["type"]?.GetValue<string>() ?? "";
+                            if (type.Equals("M", StringComparison.OrdinalIgnoreCase) &&
+                                durationsByLineId.TryGetValue(id, out var editedDurations))
+                            {
+                                var arr = new JsonArray();
+                                foreach (double d in editedDurations)
+                                    arr.Add(d);
+                                lineNode["durations"] = arr;
+                            }
+                        }
+                    }
+                }
+            }
+
+            var writeOptions = new JsonSerializerOptions
+            {
+                WriteIndented = true,
+                Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+            };
+
+            File.WriteAllText(path, _rootJsonNode.ToJsonString(writeOptions));
+        }
+
         public void SelectSong(int songIndex)
         {
             if (songIndex >= 0 && songIndex < Songs.Count)
@@ -149,7 +234,6 @@ namespace PitchDetectorApp.Audio
             int oct = (midi / 12) - 1;
             return $"{NoteNames[idx]}{oct}";
         }
-
         public MelodyStepFeedback Update(MusicalNote? detectedNote, double deltaSeconds = 0.045)
         {
             var line = CurrentLine;
@@ -177,7 +261,11 @@ namespace PitchDetectorApp.Audio
             int detectedMidi = (note.Octave + 1) * 12 + Array.IndexOf(NoteNames, note.Name);
             string detectedText = $"{note.FullName} ({note.Cents:+0;-0;0} cents)";
 
-            if (detectedMidi == targetMidi && Math.Abs(note.Cents) <= CentsTolerance)
+            bool isSamePitch = IgnoreOctaveWhenSinging
+                ? ((detectedMidi % 12 + 12) % 12) == ((targetMidi % 12 + 12) % 12)
+                : detectedMidi == targetMidi;
+
+            if (isSamePitch && Math.Abs(note.Cents) <= CentsTolerance)
             {
                 _holdSeconds += deltaSeconds;
                 if (_holdSeconds >= RequiredHoldPerNote)
@@ -218,15 +306,16 @@ namespace PitchDetectorApp.Audio
             _holdSeconds = Math.Max(0, _holdSeconds - deltaSeconds * 0.25);
             int diff = detectedMidi - targetMidi;
             string hint = diff < 0
-                ? $"⬆️ Sube ({Math.Abs(diff)} st) hacia {targetFullName}"
+                ? $"⬆️ Sube hacia {targetFullName}"
                 : diff > 0
-                    ? $"⬇️ Baja ({diff} st) hacia {targetFullName}"
+                    ? $"⬇️ Baja hacia {targetFullName}"
                     : $"Afina {targetFullName} ({note.Cents:+0;-0;0} cents)";
 
             return new MelodyStepFeedback(
                 CurrentNoteIndex, targetFullName, detectedText,
                 hint, _holdSeconds / RequiredHoldPerNote, false, false);
         }
+
         private static SongItem ParseSongDto(SongDto song)
         {
             var parsedLines = new List<SongLineItem>();
@@ -243,6 +332,8 @@ namespace PitchDetectorApp.Audio
 
                 string pendingChords = "";
                 string pendingMelody = "";
+                int pendingMelodyId = 0;
+                List<double>? pendingDurations = null;
 
                 foreach (var line in orderedLines)
                 {
@@ -250,19 +341,31 @@ namespace PitchDetectorApp.Audio
                     string text = line.Text ?? "";
 
                     if (type == "H") pendingChords = text.Trim();
-                    else if (type == "M") pendingMelody = text.Trim();
+                    else if (type == "M")
+                    {
+                        pendingMelody = text.Trim();
+                        pendingMelodyId = line.Id;
+                        pendingDurations = line.Durations;
+                    }
                     else if (type == "L")
                     {
+                        var tokens = ParseMelodyTokens(pendingMelody);
+                        var durations = BuildDurationsList(tokens.Count, pendingDurations);
+
                         sectionItems.Add(new SongLineItem
                         {
+                            MelodyLineId = pendingMelodyId,
                             SectionTitle = secLabel,
                             Chords = pendingChords,
                             MelodyRaw = pendingMelody,
                             Lyrics = text.Trim(),
-                            NoteTokens = ParseMelodyTokens(pendingMelody)
+                            NoteTokens = tokens,
+                            NoteDurations = durations
                         });
                         pendingChords = "";
                         pendingMelody = "";
+                        pendingMelodyId = 0;
+                        pendingDurations = null;
                     }
                 }
 
@@ -276,11 +379,13 @@ namespace PitchDetectorApp.Audio
                         {
                             sectionItems[i] = new SongLineItem
                             {
+                                MelodyLineId = firstVerseTemplate[i].MelodyLineId,
                                 SectionTitle = sectionItems[i].SectionTitle,
                                 Chords = firstVerseTemplate[i].Chords,
                                 MelodyRaw = firstVerseTemplate[i].MelodyRaw,
                                 Lyrics = sectionItems[i].Lyrics,
-                                NoteTokens = firstVerseTemplate[i].NoteTokens
+                                NoteTokens = firstVerseTemplate[i].NoteTokens,
+                                NoteDurations = firstVerseTemplate[i].NoteDurations
                             };
                         }
                     }
@@ -297,6 +402,19 @@ namespace PitchDetectorApp.Audio
                 Metric = song.Metric ?? "",
                 Lines = parsedLines
             };
+        }
+
+        private static List<double> BuildDurationsList(int tokenCount, List<double>? savedDurations)
+        {
+            var result = new List<double>(tokenCount);
+            for (int i = 0; i < tokenCount; i++)
+            {
+                if (savedDurations != null && i < savedDurations.Count && savedDurations[i] > 0)
+                    result.Add(savedDurations[i]);
+                else
+                    result.Add(0.50);
+            }
+            return result;
         }
 
         private static List<string> ParseMelodyTokens(string rawMelody)
@@ -331,9 +449,11 @@ namespace PitchDetectorApp.Audio
 
         private sealed class LineDto
         {
+            [JsonPropertyName("id")] public int Id { get; set; }
             [JsonPropertyName("type")] public string? Type { get; set; }
             [JsonPropertyName("order")] public int Order { get; set; }
             [JsonPropertyName("text")] public string? Text { get; set; }
+            [JsonPropertyName("durations")] public List<double>? Durations { get; set; }
         }
     }
 }
