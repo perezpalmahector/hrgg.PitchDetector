@@ -5,9 +5,8 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:PitchDetectorApp"
         mc:Ignorable="d"
-        Title="Detector Musical Inteligente (YIN + YAMNet)" Height="380" Width="460"
-        WindowStartupLocation="CenterScreen" Background="#1E1E1E" Foreground="White"
-        >
+        Title="Detector Musical Inteligente (YIN + YAMNet)" Height="380" Width="540"
+        WindowStartupLocation="CenterScreen" Background="#1E1E1E" Foreground="White">
     <Grid Margin="24">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -38,8 +37,26 @@
                        HorizontalAlignment="Center" Foreground="#A0A5B1" Margin="0,8,0,0"/>
         </StackPanel>
 
-        <Button x:Name="BtnToggle" Grid.Row="2" Content="Activar" Height="46" FontSize="16"
-                FontWeight="SemiBold" Background="#2E7D32" Foreground="White"
-                BorderThickness="0" Click="BtnToggle_Click" Cursor="Hand"/>
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="10"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="10"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <Button x:Name="BtnToggle" Grid.Column="0" Content="Activar" Height="46" FontSize="14"
+                    FontWeight="SemiBold" Background="#2E7D32" Foreground="White"
+                    BorderThickness="0" Click="BtnToggle_Click" Cursor="Hand"/>
+
+            <Button x:Name="BtnVocalTrainer" Grid.Column="2" Content="🎤 Vocal" Height="46" FontSize="14"
+                    FontWeight="SemiBold" Background="#1565C0" Foreground="White"
+                    BorderThickness="0" Click="BtnVocalTrainer_Click" Cursor="Hand"/>
+
+            <Button x:Name="BtnSongTrainer" Grid.Column="4" Content="🎵 Cantos" Height="46" FontSize="14"
+                    FontWeight="SemiBold" Background="#6A1B9A" Foreground="White"
+                    BorderThickness="0" Click="BtnSongTrainer_Click" Cursor="Hand"/>
+        </Grid>
     </Grid>
 </Window>

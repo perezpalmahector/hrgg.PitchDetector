@@ -33,6 +33,8 @@ namespace PitchDetectorApp.Audio
 
         public event Action<AudioAnalysisState>? StateUpdated;
         public bool IsListening { get; private set; }
+        public bool MonophonicOnly { get; set; }
+
 
         public AudioCaptureService()
         {
@@ -178,7 +180,9 @@ namespace PitchDetectorApp.Audio
                 }
 
                 // 4. Árbitro: Notas limpias (> 0.91 de pureza YIN) nunca son reemplazadas por acordes
-                bool showChord = confirmedChord.HasValue && _yinDetector.LastConfidence < 0.91;
+                // 4. Árbitro: Si MonophonicOnly es true, nunca evalúa acordes
+                bool showChord = !MonophonicOnly && confirmedChord.HasValue && _yinDetector.LastConfidence < 0.91;
+
 
                 StateUpdated?.Invoke(new AudioAnalysisState(
                     showChord ? null : singleNote,

@@ -43,6 +43,41 @@ namespace PitchDetectorApp
             }
         }
 
+        private void BtnVocalTrainer_Click(object sender, RoutedEventArgs e)
+        {
+            StopFreeListening();
+
+            var trainerWindow = new VocalTrainerWindow(_audioService)
+            {
+                Owner = this
+            };
+            trainerWindow.ShowDialog();
+        }
+
+        private void BtnSongTrainer_Click(object sender, RoutedEventArgs e)
+        {
+            StopFreeListening();
+
+            var songWindow = new SongTrainerWindow(_audioService)
+            {
+                Owner = this
+            };
+            songWindow.ShowDialog();
+        }
+
+        private void StopFreeListening()
+        {
+            if (_audioService.IsListening)
+            {
+                _audioService.Stop();
+                BtnToggle.Content = "Activar";
+                BtnToggle.Background = new SolidColorBrush(Color.FromRgb(46, 125, 50));
+                TxtPrincipal.Text = "--";
+                TxtDetalle.Text = "Detenido";
+                LstFuentes.ItemsSource = null;
+            }
+        }
+
         private void OnStateUpdated(AudioAnalysisState state)
         {
             Dispatcher.BeginInvoke(() =>
